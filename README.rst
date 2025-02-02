@@ -1,7 +1,7 @@
 dl-101soundboards
 #################
 
-A downloader for ``https://www.101soundboards.com/boards/`` URLs.
+An unofficial downloader for ``https://www.101soundboards.com/boards/`` URLs.
 
 Installation
 ************
