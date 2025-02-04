@@ -10,7 +10,7 @@ with open('LICENSE') as f:
 
 setup(
     name='dl-101soundboards',
-    version='1.1.0a1',
+    version='1.2.0a1',
     description='Unofficial downloader for www.101soundboards.com',
     long_description=readme,
     author='gitchasing',
