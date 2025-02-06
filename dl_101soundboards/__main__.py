@@ -1,5 +1,4 @@
 from dl_101soundboards.config.config import *
-from dl_101soundboards.verify_ffmpeg import verify_ffmpeg
 from mutagen.flac import FLAC
 from pydub import AudioSegment
 from pydub.exceptions import CouldntDecodeError, CouldntEncodeError
@@ -9,7 +8,6 @@ import os
 import re
 import requests
 import shutil
-
 
 def main():
     parser = argparse.ArgumentParser()
@@ -32,23 +30,20 @@ def main():
 
     args, unknown = parser.parse_known_args()
 
-    print()
-    config = verify_config()
+    get_config_gen = get_config()
+    config = next(get_config_gen)
     if config is None:
         exit(1)
-    if args.edit_config:
-        config = edit_config(config)
-
-    if not verify_ffmpeg():
-        exit(1)
     else:
-        print("\r\033[KFFmpeg found!\nRunning program....")
-
+        valid_formats = next(get_config_gen)
+    if args.edit_config:
+        print("Opening config editor....")
+        edit_config_gen = edit_config(config, valid_formats)
+        config = next(edit_config_gen)
+        valid_formats = next(edit_config_gen)
     downloads_pardir = f"{config['downloads_pardir']}"
     user_agent = config['user_agent']
-
     formats = []
-    valid_formats = ('flac', 'wav')
     unknown_formats = []
     if not args.format is None:
         user_formats = args.format[0]
@@ -77,7 +72,7 @@ def main():
         session.headers['User-Agent'] = user_agent
         for url in urls:
             url = f"https://www.{url}?show_all_sounds=yes"
-            print(f"\nFetching \"{url}\"....")
+            print(f"Fetching \"{url}\"....")
 
             response = session.get(url)
             response.raise_for_status()
@@ -142,13 +137,13 @@ def main():
                         for format in formats:
                             export_dir = os.path.abspath(f"{trimmed_sounds_dir}/{format}")
                             os.makedirs(export_dir, exist_ok=True)
-                            trimmed_sound_export_name = os.path.abspath(f"{export_dir}/{sound_id}.{format}")
+                            trimmed_sound_export_name = os.path.abspath(f"{export_dir}/{sound_id}.{valid_formats[format]}")
                             audio.export(trimmed_sound_export_name, format=format)
                     except (CouldntDecodeError, CouldntEncodeError, IOError):
                         continue
                 for format in formats:
                     print(
-                        f"\r\033[KExported {current_sound} {format.upper()} file{sounds_tense} to \"{os.path.abspath(f"{trimmed_sounds_dir}/{format}")}\"")
+                        f"\r\033[KExported {current_sound} .{valid_formats[format].upper()} file{sounds_tense} to \"{os.path.abspath(f"{trimmed_sounds_dir}/{format}")}\"")
 
                 if 'flac' in formats:
                     print(f"Adding metadata to export{sounds_tense}....")
@@ -183,7 +178,6 @@ def main():
                     print("Removing original downloads....")
                     shutil.rmtree(untrimmed_sounds_dir)
                     print(f"Removed \"{untrimmed_sounds_dir}\"")
-    print()
 
 
 if __name__ == "__main__":

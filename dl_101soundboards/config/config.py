@@ -1,16 +1,23 @@
+from json import JSONDecodeError
 import json
 import os
 import random
 import re
 import string
-from json import JSONDecodeError
+import subprocess
+import unicurses
 
-config_keys = ["downloads_pardir", "user_agent"]
-config_path = os.path.abspath(f"{os.path.dirname(os.path.abspath(__file__))}/config.json")
+config_dirname = os.path.dirname(__file__)
+config_keys = ['downloads_pardir', 'user_agent', 'muxers']
+config_path = os.path.abspath(f"{config_dirname}/config.json")
 
-def verify_config ():
+muxers_path = os.path.abspath(f"{config_dirname}/muxers.json")
+
+def get_config ():
+    stdscr = unicurses.initscr()
+
     if not os.path.exists(config_path):
-        return _create_config(config_keys, config={}, save=True)
+        config = _create_config(config_keys, config={}, save=True)
     else:
         with open(config_path) as file:
             try:
@@ -20,29 +27,36 @@ def verify_config ():
                 else:
                     downloads_pardir = config['downloads_pardir']
                     if not file_path_is_writable(downloads_pardir):
-                        user_input = get_yes_or_no(f"Edit 'downloads_pardir' at {config_path}? [Y/n]: ")
+                        user_input = _get_yes_or_no(f"Edit 'downloads_pardir' at {config_path}? [Y/n]: ")
                         if user_input:
                             _create_config(['downloads_pardir'], config=config, save=True)
                         else:
-                            return None
-
-                if not 'user_agent' in config:
-                    _create_config(['user_agent'], config=config, save=True)
+                            yield None
 
             except JSONDecodeError as e:
-                print(f"Error parsing \"{config_path}\": ")
-                user_input = get_yes_or_no(f"Write {config_path} from scratch? [Y/n]: ")
+                unicurses.addstr(f"Error parsing \"{config_path}\": {e}\n")
+                user_input = _get_yes_or_no(f"Write {config_path} from scratch? [Y/n]: ")
                 if user_input:
                     _create_config(config_keys, config={}, save=True)
                 else:
-                    return None
-            return config
+                    yield None
+
+            if not config is None and not 'user_agent' in config:
+                _create_config(['user_agent'], config=config, save=True)
+
+            if not 'muxers' in config:
+                _create_config(['muxers'], config=config, save=True)
+
+    muxers = get_muxers()
+    unicurses.endwin()
+    yield config
+    yield muxers
 
 def _create_config (keys, config={}, save=False):
     config = edit_keys(config, keys)
     if save:
-        with open(config_path, "w") as outfile:
-            json.dump(config, outfile)
+        with open(config_path, 'w') as out_file:
+            json.dump(config, out_file)
     return config
 
 def edit_keys (config, keys):
@@ -50,32 +64,78 @@ def edit_keys (config, keys):
         match key:
             case 'downloads_pardir':
                 while True:
-                    downloads_pardir = os.path.abspath(input("Enter a (relative) file path for your downloads: ").strip())
+                    unicurses.addstr("Enter a (relative) file path for your downloads: ")
+                    downloads_pardir = os.path.abspath(unicurses.getstr())
                     if file_path_is_writable(downloads_pardir):
                         config['downloads_pardir'] = downloads_pardir
                         break
 
             case 'user_agent':
-                config['user_agent'] = input("Paste your user agent: ").strip()
+                unicurses.addstr("Paste your user agent: ")
+                config['user_agent'] = unicurses.getstr()
+
+            case 'muxers':
+                config['muxers'] = muxers_path
     return config
 
-def edit_config (config):
+def get_muxers():
+    try:
+        with open(muxers_path, 'r') as out_file:
+            valid_formats = json.load(out_file)
+    except (FileNotFoundError, IOError, JSONDecodeError):
+        error_statement = f"Failed to read {muxers_path}"
+    else:
+        if len(valid_formats) < 1:
+            error_statement = f"Empty JSON at {muxers_path}"
+        else:
+            return valid_formats
+    return get_ffmpeg_muxers(msg=error_statement)
+
+def get_ffmpeg_muxers(msg=None):
+    if not msg is None:
+        unicurses.addstr(f"{msg}\n")
+    unicurses.addstr("Running FFmpeg....\n")
+    unicurses.refresh()
+    sp_formats = subprocess.run(["ffmpeg", "-formats"], capture_output=True, text=True).stdout
+    re_muxers = re.findall("\\s(?:D|)?E[\\s]+([^\\s]*)\\s", sp_formats)
+    valid_formats = {}
+    muxer_count = 0
+    for muxer in re_muxers:
+        unicurses.addstr(f"\r\tFetched {muxer_count} of {len(re_muxers)} (de)muxers")
+        unicurses.refresh()
+        sp_muxer = subprocess.run(['ffmpeg', '-v', '1', '-h', f'muxer={muxer}'], capture_output=True,
+                                  text=True).stdout
+        re_extension = re.findall('Common extensions: ([^.,]*)[.,]', sp_muxer)
+        if len(re_extension) > 0:
+            valid_formats[muxer] = re_extension[0]
+            muxer_count += 1
+        unicurses.clrtoeol()
+    unicurses.addstr(f"\rRetrieved {muxer_count} muxers\n\rWriting to file....")
+    unicurses.refresh()
+    with open(muxers_path, 'w') as out_file:
+        json.dump(valid_formats, out_file)
+    unicurses.addstr(f"\r\033[KChanges saved to {muxers_path}")
+    unicurses.refresh()
+    return valid_formats
+
+def edit_config (config, muxers):
     new_config = config.copy()
     config_changes = 0
-
+    stdscr = unicurses.initscr()
     while True:
-        print("\033c", end="")
+        unicurses.clear()
         if config_changes < 1:
-            print("'q' to quit\n\n{")
+            unicurses.addstr("'q' to quit\n\n{")
         else:
-            print("'s' to save and quit\n'q' to quit without saving\n\n{")
+            unicurses.addstr("'s' to save and quit\n'q' to quit without saving\n\n{")
         key_count = 0
         for key in new_config:
             key_count += 1
-            print(f"\t{key_count} - \"{key}\": {new_config[key]},")
-        print("}\n")
+            unicurses.addstr(f"\n\t{key_count} - \"{key}\": {new_config[key]},")
         key_range = f"1-{key_count}" if key_count > 1 else '1'
-        user_selection = _verify_input(new_config, input(f"Select a key to edit [{key_range}]: ").strip())
+        unicurses.addstr(f"\n}}\n\nSelect a key to edit [{key_range}]: ")
+
+        user_selection = _verify_input(new_config, unicurses.getstr())
 
         while True:
             if user_selection.isnumeric() and int(user_selection) > 0:
@@ -87,19 +147,24 @@ def edit_config (config):
                     config_changes += 1
                 elif config[key] == new_config[key] and previous_value != config[key]:
                     config_changes -= 1
+
+                if key == 'muxers':
+                    muxers = get_ffmpeg_muxers()
                 break
             elif user_selection == 'Q':
-                print("\033c", end="")
+                unicurses.endwin()
                 if config_changes > 0:
                     print("Changes discarded")
             elif user_selection == 'S' and config_changes > 0:
                 config = _create_config({}, config=new_config, save=True)
-                print("\033cChanges saved")
+                unicurses.endwin()
+                print("Changes saved")
             else:
-                print("Bad input")
-                user_selection = _verify_input(config, input(f"Please enter [1-{key_count}]: ").strip())
+                unicurses.addstr(f"Bad input\nPlease enter [1-{key_count}]: ")
+                user_selection = _verify_input(config, unicurses.getstr())
                 continue
-            return config
+            yield config
+            yield muxers
 
 def _verify_input (config, user_selection):
     key_count = len(config)
@@ -110,20 +175,21 @@ def _verify_input (config, user_selection):
             user_selection = search_result.group(0)
         try:
             if search_result is None or (int(user_selection) < 1 or int(user_selection) > key_count):
-                print("Bad input")
-                user_selection = input(f"Please enter [1-{key_count}]: ").strip()
+                unicurses.addstr(f"Bad input\nPlease enter [1-{key_count}]: ")
+                user_selection = unicurses.getstr()
                 continue
         except ValueError:
             user_selection = user_selection[0].upper()
         return user_selection
     config = _create_config([list(config.keys())[user_selection]], config=config, save=False)
 
-def get_yes_or_no (input_message):
-    user_input = input(input_message).strip().upper()
-    while not len(user_input) > 0 or (not user_input[0] == 'Y' and not user_input[0] == 'N'):
-        print("Bad input")
-        user_input = input("Please enter [Y/n]: ").strip().upper()
-    user_input = False if user_input[0] == 'N' else True
+def _get_yes_or_no (input_message):
+    unicurses.addstr(input_message)
+    user_input = unicurses.getstr()
+    while not type(user_input) == str or (len(user_input) > 0 or (not user_input[0].upper() == 'Y' and not user_input[0].upper() == 'N')):
+        unicurses.addstr("Bad input\nPlease enter [Y/n]: ")
+        user_input = unicurses.getstr()
+    user_input = False if user_input[0].upper() == 'N' else True
     return user_input
 
 def file_path_is_writable (downloads_pardir):
@@ -150,5 +216,5 @@ def file_path_is_writable (downloads_pardir):
             else:
                 os.rmdir(dummy_path)
                 return True
-    print(error_message)
+    unicurses.addstr(error_message)
     return False
