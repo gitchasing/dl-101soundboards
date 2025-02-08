@@ -130,10 +130,9 @@ def main():
                     try:
                         audio = AudioSegment.from_mp3(f"{untrimmed_sounds_dir}/{sound_id}.mp3")
                         audio_length = len(audio)
-                        if not sound["sound_duration"] > audio_length:
-                            trim_samples = 8820 * int(sound_id[-1]) if sound_id[-1] != '0' else 88200
-                            trim_samples = trim_samples * 2 if audio.channels == 2 else trim_samples
-                            audio = audio._spawn(audio.get_array_of_samples()[trim_samples:])
+                        trim_samples = 8820 * int(sound_id[-1]) if sound_id[-1] != '0' else 88200
+                        trim_samples = trim_samples * 2 if audio.channels == 2 else trim_samples
+                        audio = audio._spawn(audio.get_array_of_samples()[trim_samples:])
                         for format in formats:
                             export_dir = os.path.abspath(f"{trimmed_sounds_dir}/{format}")
                             os.makedirs(export_dir, exist_ok=True)
