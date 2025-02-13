@@ -85,11 +85,15 @@ def get_muxers():
     except (FileNotFoundError, IOError, JSONDecodeError):
         error_statement = f"Failed to read {muxers_path}"
     else:
-        if len(valid_formats) < 1:
+        if valid_formats is None or len(valid_formats) < 1:
             error_statement = f"Empty JSON at {muxers_path}"
         else:
             return valid_formats
-    return get_ffmpeg_muxers(msg=error_statement)
+    ffmpeg_muxers = get_ffmpeg_muxers(msg=error_statement)
+    with open(muxers_path, 'w') as out_file:
+        json.dump(ffmpeg_muxers, out_file)
+    unicurses.addstr(f"\r\033[KChanges saved to {muxers_path}")
+    return ffmpeg_muxers
 
 def get_ffmpeg_muxers(msg=None):
     if not msg is None:
@@ -112,14 +116,12 @@ def get_ffmpeg_muxers(msg=None):
         unicurses.clrtoeol()
     unicurses.addstr(f"\rRetrieved {muxer_count} muxers\n\rWriting to file....")
     unicurses.refresh()
-    with open(muxers_path, 'w') as out_file:
-        json.dump(valid_formats, out_file)
-    unicurses.addstr(f"\r\033[KChanges saved to {muxers_path}")
     unicurses.refresh()
     return valid_formats
 
 def edit_config (config, muxers):
     new_config = config.copy()
+    new_muxers = None
     config_changes = 0
     stdscr = unicurses.initscr()
     while True:
@@ -149,13 +151,19 @@ def edit_config (config, muxers):
                     config_changes -= 1
 
                 if key == 'muxers':
-                    muxers = get_ffmpeg_muxers()
+                    if new_muxers is None:
+                        config_changes += 1
+                    new_muxers = get_ffmpeg_muxers()
                 break
             elif user_selection == 'Q':
                 unicurses.endwin()
                 if config_changes > 0:
                     print("Changes discarded")
             elif user_selection == 'S' and config_changes > 0:
+                if not new_muxers is None:
+                    with open(muxers_path, 'w') as out_file:
+                        json.dump(new_muxers, out_file)
+                    muxers = new_muxers
                 config = _create_config({}, config=new_config, save=True)
                 unicurses.endwin()
                 print("Changes saved")

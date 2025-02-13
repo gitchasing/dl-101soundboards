@@ -1,7 +1,13 @@
 from dl_101soundboards.config.config import *
+from dl_101soundboards.config.get_iso639_xxx import get_iso639_xxx
+
+from mutagen.aiff import AIFF
 from mutagen.flac import FLAC
+from mutagen.id3 import TIT2, COMM, TALB, TPE1, TDOR, TDRC, TRCK, TCON, TPUB, TCOP
+from mutagen.trueaudio import TrueAudio
+
 from pydub import AudioSegment
-from pydub.exceptions import CouldntDecodeError, CouldntEncodeError
+
 import argparse
 import json
 import os
@@ -106,14 +112,13 @@ def main():
                 sound_id = str(sound['id'])
 
                 download_path = os.path.abspath(f"{untrimmed_sounds_dir}/{sound_id}.mp3")
-
-                try:
-                    response = session.get(url, stream=True)
-                    response.raise_for_status()
-                    with open(download_path, 'wb') as out_file:
-                        out_file.write(response.content)
-                except IOError:
-                    continue
+                headers = {
+                    "Host": "101soundboards.com"
+                }
+                response = session.get(url, stream=True)
+                response.raise_for_status()
+                with open(download_path, 'wb') as out_file:
+                    out_file.write(response.content)
 
             print(f"\r\033[KDownloaded {current_sound} sound{sounds_tense} to \"{untrimmed_sounds_dir}\"")
 
@@ -127,31 +132,29 @@ def main():
                         f"\r\tTrimming {current_sound} of {sounds_count} sound{sounds_tense}....",
                         end='')
                     sound_id = str(sound["id"])
-                    try:
-                        audio = AudioSegment.from_mp3(f"{untrimmed_sounds_dir}/{sound_id}.mp3")
-                        if sound["sound_rendered"]:
-                            trim_samples = 8820 * int(sound_id[-1]) if sound_id[-1] != '0' else 88200
-                            trim_samples = trim_samples * 2 if audio.channels == 2 else trim_samples
-                            audio = audio._spawn(audio.get_array_of_samples()[trim_samples:])
-                        for format in formats:
-                            export_dir = os.path.abspath(f"{trimmed_sounds_dir}/{format}")
-                            os.makedirs(export_dir, exist_ok=True)
-                            trimmed_sound_export_name = os.path.abspath(f"{export_dir}/{sound_id}.{valid_formats[format]}")
-                            audio.export(trimmed_sound_export_name, format=format)
-                    except (CouldntDecodeError, CouldntEncodeError, IOError):
-                        continue
+                    audio = AudioSegment.from_mp3(f"{untrimmed_sounds_dir}/{sound_id}.mp3")
+                    if sound["sound_rendered"]:
+                        trim_samples = 8820 * int(sound_id[-1]) if sound_id[-1] != '0' else 88200
+                        trim_samples = trim_samples * 2 if audio.channels == 2 else trim_samples
+                        audio = audio._spawn(audio.get_array_of_samples()[trim_samples:])
+                    for format in formats:
+                        export_dir = os.path.abspath(f"{trimmed_sounds_dir}/{format}")
+                        os.makedirs(export_dir, exist_ok=True)
+                        trimmed_sound_export_name = os.path.abspath(f"{export_dir}/{sound_id}.{valid_formats[format]}")
+                        audio.export(trimmed_sound_export_name, format=format)
                 for format in formats:
                     print(
-                        f"\r\033[KExported {current_sound} .{valid_formats[format].upper()} file{sounds_tense} to \"{os.path.abspath(f"{trimmed_sounds_dir}/{format}")}\"")
+                        f"\r\033[KExported {current_sound} {format.upper()} file{sounds_tense} to \"{os.path.abspath(f"{trimmed_sounds_dir}/{format}")}\"")
 
-                if 'flac' in formats:
-                    print(f"Adding metadata to export{sounds_tense}....")
+                def tag_id3 (format, format_class):
+                    sounds_path = os.path.abspath(f"{trimmed_sounds_dir}/{format}")
+                    print(f"Adding metadata to {os.path.abspath(f"{sounds_path}/*.{valid_formats[format]}")}....")
                     current_sound = 0
-                    for sound in board_data_inline['sounds']:
-                        current_sound += 1
-                        print(
-                            f"\r\tTagging {current_sound} of {sounds_count} sound{sounds_tense}....", end='')
-                        try:
+                    if format == 'flac':
+                        for sound in board_data_inline['sounds']:
+                            current_sound += 1
+                            print(
+                                f"\r\tTagging {current_sound} of {sounds_count} sound{sounds_tense}....", end='')
                             file = FLAC(os.path.abspath(f"{trimmed_sounds_dir}/flac/{sound["id"]}.flac"))
                             metadata = {
                                 "TITLE": sound['sound_transcript'],
@@ -162,16 +165,48 @@ def main():
                                 "DATE": sound['updated_at'],
                                 "TRACKNUMBER": str(sound['sound_order']),
                                 "GENRE": 'Soundboard',
-                                "ORGANIZATION": "www.101soundboards.com",
-                                "COPYRIGHT": "www.101soundboards.com",
+                                "ORGANIZATION": 'www.101soundboards.com',
+                                "COPYRIGHT": 'www.101soundboards.com',
                             }
                             for key, value in metadata.items():
                                 file[key] = value
                             file.save()
-                        except Exception:
-                            continue
+                    else:
+                        lang = get_iso639_xxx()
+                        for sound in board_data_inline['sounds']:
+                            current_sound += 1
+                            print(
+                                f"\r\tTagging {current_sound} of {sounds_count} sound{sounds_tense}....", end='')
+                            sound_path = os.path.abspath(f"{sounds_path}/{sound["id"]}.{valid_formats[format]}")
+                            file = format_class(sound_path)
+                            try:
+                                file.add_tags()
+                            except:
+                                pass
+                            metadata = (
+                                TIT2(encoding=3, text=sound['sound_transcript']),
+                                COMM(encoding=3, lang=get_iso639_xxx(), text=f"Sound ID: {sound['id']}"),
+                                TPE1(encoding=3, text='www.101soundboards.com'),
+                                TALB(encoding=3, text=board_data_inline['board_title']),
+                                TDOR(encoding=3, text=board_data_inline['created_at'][:4]),
+                                TDRC(encoding=3, text=sound['updated_at']),
+                                TRCK(encoding=3, text=f"{sound['sound_order']}/{board_data_inline['sounds_count']}"),
+                                TCON(encoding=3, text='Soundboard'),
+                                TPUB(encoding=3, text='www.101soundboards.com'),
+                                TCOP(encoding=3, text='www.101soundboards.com'),
+                            )
+                            for tag in metadata:
+                                file.tags.add(tag)
+                            file.tags.save(sound_path)
 
-                    print(f"\r\033[KTagged {current_sound} FLAC file{sounds_tense}")
+                    print(f"\r\033[KTagged {current_sound} {format.upper()} file{sounds_tense}")
+
+                if 'aiff' in formats:
+                    tag_id3('aiff', AIFF)
+                if 'flac' in formats:
+                    tag_id3('flac', FLAC)
+                if 'tta' in formats:
+                    tag_id3('tta', TrueAudio)
 
                 if not args.no_delete:
                     print("Removing original downloads....")

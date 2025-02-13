@@ -1,10 +1,17 @@
+**NOTICE:** `yt-dlp`_ appears to support www.101soundboards.com/boards/ URLs
+via generic extractors. ``yt-dlp`` is much faster than ``dl-101soundboards``, but may be less
+viable with regard to file organisation and metadata-tagging.
+
+.. _yt-dlp: https://github.com/yt-dlp/yt-dlp
+
+=================
 dl-101soundboards
-#################
+=================
 
 An unofficial downloader for ``https://www.101soundboards.com/boards/`` URLs.
 
 Dependencies
-************
+============
 
 * Python 3.8 or higher
 * `FFmpeg`_ (add this to your system PATH)
@@ -12,14 +19,14 @@ Dependencies
 .. _FFmpeg: https://www.ffmpeg.org/download.html
 
 Installation
-************
+============
 
 .. code-block:: console
 
     $ pip install dl-101soundboards
 
 Usage
-*****
+=====
 
 Use the shell command ``dl-101soundboards`` with the URLs as arguments.
 
@@ -69,7 +76,7 @@ Alternatively, if you wish to leave the sounds untrimmed, use the ``--no-trim`` 
     Downloaded 8 sounds to "C:\Users\gitchasing\Downloads\Windows 95 - Video Game Music\685667\untrimmed"
 
 Output
-======
+******
 
 Downloads only come as MP3s, but exports support `whatever FFmpeg supports.`_
 
