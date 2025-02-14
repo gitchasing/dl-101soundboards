@@ -5,6 +5,7 @@ from mutagen.aiff import AIFF
 from mutagen.flac import FLAC
 from mutagen.id3 import TIT2, COMM, TALB, TPE1, TDOR, TDRC, TRCK, TCON, TPUB, TCOP
 from mutagen.trueaudio import TrueAudio
+from mutagen.wavpack import WavPack
 
 from pydub import AudioSegment
 
@@ -17,22 +18,29 @@ import shutil
 
 def main():
     parser = argparse.ArgumentParser()
+
+    parser.add_argument('-o', '--output', help="Defines the subdirectory to which sounds are stored."
+                        "This will be necessary when the board title raises an OSError.")
+
     parser.add_argument('-e', '--edit-config', action='store_true',
                         help='Enables user to edit config from command line')
-    a2 = parser.add_argument('--no-delete', action='store_true',
+
+    a3 = parser.add_argument('--no-delete', action='store_true',
                              help='Disables default behaviour of deleting original downloads')
-    a3 = parser.add_argument('--no-trim', action='store_true',
+
+    a4 = parser.add_argument('--no-trim', action='store_true',
                              help='Disables default behaviour of producing trimmed files')
-    a4 = parser.add_argument('-f', '--format', nargs='+', action='append', type=str.lower,
+
+    a5 = parser.add_argument('-f', '--format', nargs='+', action='append', type=str.lower,
                              help='Produces trimmed files in the specified format')
 
     group1 = parser.add_mutually_exclusive_group()
-    group1._group_actions.append(a2)
     group1._group_actions.append(a3)
+    group1._group_actions.append(a4)
 
     group2 = parser.add_mutually_exclusive_group()
-    group2._group_actions.append(a3)
     group2._group_actions.append(a4)
+    group2._group_actions.append(a5)
 
     args, unknown = parser.parse_known_args()
 
@@ -77,7 +85,7 @@ def main():
     with requests.Session() as session:
         session.headers['User-Agent'] = user_agent
         for url in urls:
-            url = f"https://www.{url}?show_all_sounds=yes"
+            url = f"https://www.{url}?all_sounds=yes"
             print(f"Fetching \"{url}\"....")
 
             response = session.get(url)
@@ -87,7 +95,7 @@ def main():
             board_data_inline = json.loads(
                 re.findall(r"board_data_inline =(.*?)}};", response_content, re.DOTALL)[0] + "}}")
 
-            board_title = board_data_inline["board_title"]
+            board_title = args.output if not args.output is None else board_data_inline["board_title"]
             sounds_count = board_data_inline['sounds_count']
             sounds_tense = 's' if sounds_count != 1 else ''
             print(f"Fetching \"{board_title}\" ({sounds_count} sound{sounds_tense})....")
@@ -155,7 +163,8 @@ def main():
                             current_sound += 1
                             print(
                                 f"\r\tTagging {current_sound} of {sounds_count} sound{sounds_tense}....", end='')
-                            file = FLAC(os.path.abspath(f"{trimmed_sounds_dir}/flac/{sound["id"]}.flac"))
+                            sound_path = os.path.abspath(f"{sounds_path}/{sound["id"]}.{valid_formats[format]}")
+                            file = format_class(sound_path)
                             metadata = {
                                 "TITLE": sound['sound_transcript'],
                                 "DESCRIPTION": f"Sound ID: {sound['id']}",
@@ -163,9 +172,31 @@ def main():
                                 "ALBUM": board_data_inline['board_title'],
                                 "YEAR": board_data_inline['created_at'][:4],
                                 "DATE": sound['updated_at'],
-                                "TRACKNUMBER": str(sound['sound_order']),
+                                "TRACKNUMBER": f"{sound['sound_order']}/{board_data_inline['sounds_count']}",
                                 "GENRE": 'Soundboard',
                                 "ORGANIZATION": 'www.101soundboards.com',
+                                "COPYRIGHT": 'www.101soundboards.com',
+                            }
+                            for key, value in metadata.items():
+                                file[key] = value
+                            file.save()
+                    elif format == 'wv':
+                        for sound in board_data_inline['sounds']:
+                            current_sound += 1
+                            print(
+                                f"\r\tTagging {current_sound} of {sounds_count} sound{sounds_tense}....", end='')
+                            sound_path = os.path.abspath(f"{sounds_path}/{sound["id"]}.{valid_formats[format]}")
+                            file = format_class(sound_path)
+                            metadata = {
+                                "TITLE": sound['sound_transcript'],
+                                "COMMENT": f"Sound ID: {sound['id']}",
+                                "ARTIST": 'www.101soundboards.com',
+                                "ALBUM": board_data_inline['board_title'],
+                                "YEAR": board_data_inline['created_at'][:4],
+                                "DATE": sound['updated_at'],
+                                "TRACK": f"{sound['sound_order']}/{board_data_inline['sounds_count']}",
+                                "GENRE": 'Soundboard',
+                                "PUBLISHER": 'www.101soundboards.com',
                                 "COPYRIGHT": 'www.101soundboards.com',
                             }
                             for key, value in metadata.items():
@@ -207,6 +238,8 @@ def main():
                     tag_id3('flac', FLAC)
                 if 'tta' in formats:
                     tag_id3('tta', TrueAudio)
+                if 'wv' in formats:
+                    tag_id3('wv', WavPack)
 
                 if not args.no_delete:
                     print("Removing original downloads....")
