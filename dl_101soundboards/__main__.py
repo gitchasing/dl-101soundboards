@@ -5,6 +5,7 @@ from mutagen.aiff import AIFF
 from mutagen.flac import FLAC
 from mutagen.id3 import TIT2, COMM, TALB, TPE1, TDOR, TDRC, TRCK, TCON, TPUB, TCOP
 from mutagen.trueaudio import TrueAudio
+from mutagen.wave import WAVE
 from mutagen.wavpack import WavPack
 
 from pydub import AudioSegment
@@ -17,7 +18,18 @@ import requests
 import shutil
 
 def main():
+
+    get_config_gen = get_config()
+    config = next(get_config_gen)
+    if config is None:
+        exit(1)
+    else:
+        valid_formats = next(get_config_gen)
+
     parser = argparse.ArgumentParser()
+
+    parser.add_argument('-t', '--token', help="Adds a cf_clearance token to the request."
+                                               "This will be necessary to bypass Cloudflare.")
 
     parser.add_argument('-o', '--output', help="Defines the subdirectory to which sounds are stored."
                         "This will be necessary when the board title raises an OSError.")
@@ -31,8 +43,7 @@ def main():
     a4 = parser.add_argument('--no-trim', action='store_true',
                              help='Disables default behaviour of producing trimmed files')
 
-    a5 = parser.add_argument('-f', '--format', nargs='+', action='append', type=str.lower,
-                             help='Produces trimmed files in the specified format')
+    a5 = parser.add_argument('-f', '--format', nargs='+', action='append', type=str.lower, help='Produces trimmed files in the specified format')
 
     group1 = parser.add_mutually_exclusive_group()
     group1._group_actions.append(a3)
@@ -44,12 +55,6 @@ def main():
 
     args, unknown = parser.parse_known_args()
 
-    get_config_gen = get_config()
-    config = next(get_config_gen)
-    if config is None:
-        exit(1)
-    else:
-        valid_formats = next(get_config_gen)
     if args.edit_config:
         print("Opening config editor....")
         edit_config_gen = edit_config(config, valid_formats)
@@ -62,13 +67,30 @@ def main():
     if not args.format is None:
         user_formats = args.format[0]
         format_count = 0
+
+        def match_unknown_format (format):
+            match (format):
+                case 'aif':
+                    format = 'aiff'
+                case 'trueaudio':
+                    format = 'tta'
+                case 'wave':
+                    format = 'wav'
+                case 'wavpack':
+                    format = 'wv'
+                case _:
+                    unknown_formats.append(format)
+                    return
+            if format not in formats:
+                formats.append(format)
+
         while len(formats) < len(valid_formats) and format_count < len(user_formats):
             format = user_formats[format_count]
             if format in valid_formats:
                 if format not in formats:
                     formats.append(format)
             else:
-                unknown_formats.append(format)
+                match_unknown_format(format)
             format_count += 1
         unknown += unknown_formats + user_formats[format_count:]
 
@@ -83,7 +105,12 @@ def main():
                 urls.append(url)
 
     with requests.Session() as session:
-        session.headers['User-Agent'] = user_agent
+        session.headers = {
+            'user-agent': user_agent,
+        }
+        if args.token:
+            session.cookies.set('cf_clearance', args.token)
+
         for url in urls:
             url = f"https://www.{url}?all_sounds=yes"
             print(f"Fetching \"{url}\"....")
@@ -98,7 +125,7 @@ def main():
             board_title = args.output if not args.output is None else board_data_inline["board_title"]
             sounds_count = board_data_inline['sounds_count']
             sounds_tense = 's' if sounds_count != 1 else ''
-            print(f"Fetching \"{board_title}\" ({sounds_count} sound{sounds_tense})....")
+            print(f"Fetching \"{board_data_inline['board_title']}\" ({sounds_count} sound{sounds_tense})....")
             board_title = board_title.translate({ord(x): '' for x in "\\/:*?\"<>|"})
 
             downloads_dir = os.path.abspath(f"{downloads_pardir}/{board_title}/{board_data_inline['id']}")
@@ -131,7 +158,6 @@ def main():
             print(f"\r\033[KDownloaded {current_sound} sound{sounds_tense} to \"{untrimmed_sounds_dir}\"")
 
             if not args.no_trim:
-                trimmed_sounds_dir = os.path.abspath(f"{downloads_dir}/trimmed")
                 current_sound = 0
                 print(f"Trimming sound file{sounds_tense}....")
                 for sound in board_data_inline["sounds"]:
@@ -146,16 +172,16 @@ def main():
                         trim_samples = trim_samples * 2 if audio.channels == 2 else trim_samples
                         audio = audio._spawn(audio.get_array_of_samples()[trim_samples:])
                     for format in formats:
-                        export_dir = os.path.abspath(f"{trimmed_sounds_dir}/{format}")
+                        export_dir = os.path.abspath(f"{downloads_dir}/{format}")
                         os.makedirs(export_dir, exist_ok=True)
                         trimmed_sound_export_name = os.path.abspath(f"{export_dir}/{sound_id}.{valid_formats[format]}")
                         audio.export(trimmed_sound_export_name, format=format)
                 for format in formats:
                     print(
-                        f"\r\033[KExported {current_sound} {format.upper()} file{sounds_tense} to \"{os.path.abspath(f"{trimmed_sounds_dir}/{format}")}\"")
+                        f"\r\033[KExported {current_sound} {format.upper()} file{sounds_tense} to \"{os.path.abspath(f"{downloads_dir}/{format}")}\"")
 
                 def tag_id3 (format, format_class):
-                    sounds_path = os.path.abspath(f"{trimmed_sounds_dir}/{format}")
+                    sounds_path = os.path.abspath(f"{downloads_dir}/{format}")
                     print(f"Adding metadata to {os.path.abspath(f"{sounds_path}/*.{valid_formats[format]}")}....")
                     current_sound = 0
                     if format == 'flac':
@@ -238,6 +264,8 @@ def main():
                     tag_id3('flac', FLAC)
                 if 'tta' in formats:
                     tag_id3('tta', TrueAudio)
+                if 'wav' in formats:
+                    tag_id3('wav', WAVE)
                 if 'wv' in formats:
                     tag_id3('wv', WavPack)
 

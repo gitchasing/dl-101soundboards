@@ -1,4 +1,4 @@
-**NOTICE:** `yt-dlp`_ appears to support www.101soundboards.com/boards/ URLs
+**NOTICE:** `yt-dlp`_ appears to support ``www.101soundboards.com/boards/`` URLs
 via generic extractors. ``yt-dlp`` is much faster than ``dl-101soundboards``, but may be less
 viable with regard to file organisation and metadata-tagging.
 
@@ -75,8 +75,8 @@ Alternatively, if you wish to leave the sounds untrimmed, use the ``--no-trim`` 
     Fetching "Windows 95 - Video Game Music" (8 sounds)....
     Downloaded 8 sounds to "C:\Users\gitchasing\Downloads\Windows 95 - Video Game Music\685667\untrimmed"
 
-Output
-******
+Exports
+*******
 
 Downloads only come as MP3s, but exports support `whatever FFmpeg supports.`_
 
@@ -101,8 +101,49 @@ To specify the export format(s), use the ``-f`` or ``--format`` flag:
 
 Beware that exporting lossy formats will necessarily shed quality, due to the sample-precise trimming operations made by the program.
 
-Further note that ``dl-101soundboards`` only supports metadata-tagging for FLAC files.
+Further note that ``dl-101soundboards`` only supports metadata-tagging for some lossless formats
+(Audio Interchange File Format (AIFF), Free Lossless Audio Codec (FLAC), True Audio (TTA), Waveform Audio File Format (WAV(E)), and WavPack (WV)).
 Metadata-tagging for other lossless formats will be considered in future versions.
+
+Known Issues
+============
+
+Cloudflare
+**********
+
+``101soundboards`` seems to utilise Cloudflare in order to keep webscrapers (like this one) off its site.
+To bypass Cloudflare, you will need a ``cf_clearance`` token.
+For Chrome, take the following steps:
+
+1. Go to ``www.101soundboards.com``
+2. Open the **Developer Tools**
+3. Click **Application**
+4. View **Cookies**
+5. Copy the value of the ``cf_clearance`` cookie under **https://www.101soundboards.com**
+
+To use a ``cf_clearance`` token, use the ``-t`` or ``--token`` flag:
+
+.. code-block:: console
+
+    $ dl-101soundboards.com -t [cf_clearance token] [url]
+
+OSError
+*******
+
+Under your downloads directory, ``dl-101soundboards`` creates a subdirectory for each URL, based on the board title.
+Sometimes this board title makes for an incompatible folder name:
+
+.. code-block:: console
+
+    $ dl-101soundboards https://www.101soundboards.com/boards/644430-xenoblade-chronicles-x-xenoblade-cross-zenobureidokurosu-video-game-music
+
+To circumvent this, simply use the ``-o`` or ``--output`` flag:
+
+
+.. code-block:: console
+
+    $ dl-101soundboards -o "Xenoblade Chronicles X Soundtrack" https://www.101soundboards.com/boards/644430-xenoblade-chronicles-x-xenoblade-cross-zenobureidokurosu-video-game-music
+
 
 Configuration
 =============
