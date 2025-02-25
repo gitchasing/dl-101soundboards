@@ -37,21 +37,21 @@ def main():
     parser.add_argument('-e', '--edit-config', action='store_true',
                         help='Enables user to edit config from command line')
 
-    a3 = parser.add_argument('--no-delete', action='store_true',
+    a4 = parser.add_argument('--no-delete', action='store_true',
                              help='Disables default behaviour of deleting original downloads')
 
-    a4 = parser.add_argument('--no-trim', action='store_true',
+    a5 = parser.add_argument('--no-trim', action='store_true',
                              help='Disables default behaviour of producing trimmed files')
 
-    a5 = parser.add_argument('-f', '--format', nargs='+', action='append', type=str.lower, help='Produces trimmed files in the specified format')
+    a6 = parser.add_argument('-f', '--format', nargs='+', action='append', type=str.lower, help='Produces trimmed files in the specified format')
 
     group1 = parser.add_mutually_exclusive_group()
-    group1._group_actions.append(a3)
     group1._group_actions.append(a4)
+    group1._group_actions.append(a5)
 
     group2 = parser.add_mutually_exclusive_group()
-    group2._group_actions.append(a4)
     group2._group_actions.append(a5)
+    group2._group_actions.append(a6)
 
     args, unknown = parser.parse_known_args()
 
@@ -112,7 +112,7 @@ def main():
             session.cookies.set('cf_clearance', args.token)
 
         for url in urls:
-            url = f"https://www.{url}?all_sounds=yes"
+            url = f"https://www.{url}?show_all_sounds=yes"
             print(f"Fetching \"{url}\"....")
 
             response = session.get(url)
