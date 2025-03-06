@@ -8,7 +8,7 @@ import subprocess
 import unicurses
 
 config_dirname = os.path.dirname(__file__)
-config_keys = ['downloads_pardir', 'user_agent', 'muxers']
+config_keys = ['use_working_directory', 'user_agent', 'muxers']
 config_path = os.path.abspath(f"{config_dirname}/config.json")
 
 muxers_path = os.path.abspath(f"{config_dirname}/muxers.json")
@@ -22,16 +22,19 @@ def get_config ():
         with open(config_path) as file:
             try:
                 config = json.load(file)
-                if not 'downloads_pardir' in config:
-                    _create_config(['downloads_pardir'], config=config, save=True)
-                else:
-                    downloads_pardir = config['downloads_pardir']
-                    if not file_path_is_writable(downloads_pardir):
-                        user_input = _get_yes_or_no(f"Edit 'downloads_pardir' at {config_path}? [Y/n]: ")
-                        if user_input:
-                            _create_config(['downloads_pardir'], config=config, save=True)
-                        else:
-                            yield None
+                if not 'use_working_directory' in config:
+                    _create_config(['use_working_directory'], config=config, save=True)
+                if not config['use_working_directory']:
+                    if not 'downloads_pardir' in config:
+                        _create_config(['downloads_pardir'], config=config, save=True)
+                    else:
+                        downloads_pardir = config['downloads_pardir']
+                        if not file_path_is_writable(downloads_pardir):
+                            user_input = _get_yes_or_no(f"Edit 'downloads_pardir' at {config_path}? [Y/n]: ")
+                            if user_input:
+                                _create_config(['downloads_pardir'], config=config, save=True)
+                            else:
+                                yield None
 
             except JSONDecodeError as e:
                 unicurses.addstr(f"Error parsing \"{config_path}\": {e}\n")
@@ -41,8 +44,9 @@ def get_config ():
                 else:
                     yield None
 
-            if not config is None and not 'user_agent' in config:
-                _create_config(['user_agent'], config=config, save=True)
+            if not config is None:
+                if not 'user_agent' in config:
+                 _create_config(['user_agent'], config=config, save=True)
 
             if not 'muxers' in config:
                 _create_config(['muxers'], config=config, save=True)
@@ -53,13 +57,13 @@ def get_config ():
     yield muxers
 
 def _create_config (keys, config={}, save=False):
-    config = edit_keys(config, keys)
+    config = _edit_keys(config, keys)
     if save:
         with open(config_path, 'w') as out_file:
             json.dump(config, out_file)
     return config
 
-def edit_keys (config, keys):
+def _edit_keys (config, keys):
     for key in keys:
         match key:
             case 'downloads_pardir':
@@ -70,9 +74,13 @@ def edit_keys (config, keys):
                         config['downloads_pardir'] = downloads_pardir
                         break
 
+            case 'use_working_directory':
+                config['use_working_directory'] = not config['use_working_directory'] if 'use_working_directory' in config else False
             case 'user_agent':
                 unicurses.addstr("Paste your user agent: ")
                 config['user_agent'] = unicurses.getstr()
+                if not config['use_working_directory'] and not 'downloads_pardir' in config:
+                    keys.append('downloads_pardir')
 
             case 'muxers':
                 config['muxers'] = muxers_path

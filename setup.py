@@ -10,7 +10,7 @@ with open('LICENSE') as f:
 
 setup(
     name='dl-101soundboards',
-    version='1.6.1a1',
+    version='1.7.0a1',
     description='Unofficial downloader for www.101soundboards.com',
     long_description=readme,
     author='gitchasing',
@@ -18,10 +18,10 @@ setup(
     license=license,
     packages=find_packages(),
     install_requires=[
-        'uni-curses~=3.1.2',
         'mutagen~=1.47.0',
         'pydub~=0.25.1',
         'requests~=2.32.3',
+        'uni-curses~=3.1.2',
     ],
     entry_points={
         "console_scripts":[

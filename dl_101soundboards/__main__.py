@@ -60,7 +60,7 @@ def main():
         edit_config_gen = edit_config(config, valid_formats)
         config = next(edit_config_gen)
         valid_formats = next(edit_config_gen)
-    downloads_pardir = f"{config['downloads_pardir']}"
+    downloads_pardir = config['downloads_pardir'] if not config['use_working_directory'] else os.getcwd()
     user_agent = config['user_agent']
     formats = []
     unknown_formats = []
@@ -112,7 +112,7 @@ def main():
             session.cookies.set('cf_clearance', args.token)
 
         for url in urls:
-            url = f"https://www.{url}?show_all_sounds=yes"
+            url = f"https://www.{url}?view_all_sounds=yes"
             print(f"Fetching \"{url}\"....")
 
             response = session.get(url)
@@ -169,7 +169,7 @@ def main():
                     audio = AudioSegment.from_mp3(f"{untrimmed_sounds_dir}/{sound_id}.mp3")
                     if sound["sound_rendered"]:
                         trim_samples = 8820 * int(sound_id[-1]) if sound_id[-1] != '0' else 88200
-                        trim_samples = trim_samples * 2 if audio.channels == 2 else trim_samples
+                        trim_samples *= audio.channels
                         audio = audio._spawn(audio.get_array_of_samples()[trim_samples:])
                     for format in formats:
                         export_dir = os.path.abspath(f"{downloads_dir}/{format}")
@@ -258,16 +258,16 @@ def main():
 
                     print(f"\r\033[KTagged {current_sound} {format.upper()} file{sounds_tense}")
 
-                if 'aiff' in formats:
-                    tag_id3('aiff', AIFF)
-                if 'flac' in formats:
-                    tag_id3('flac', FLAC)
-                if 'tta' in formats:
-                    tag_id3('tta', TrueAudio)
-                if 'wav' in formats:
-                    tag_id3('wav', WAVE)
-                if 'wv' in formats:
-                    tag_id3('wv', WavPack)
+                format_class_dict = {
+                    'aiff': AIFF,
+                    'flac': FLAC,
+                    'tta': TrueAudio,
+                    'wav': WAVE,
+                    'wv': WavPack
+                }
+                for format in formats:
+                    if format in format_class_dict:
+                        tag_id3(format, format_class_dict[format])
 
                 if not args.no_delete:
                     print("Removing original downloads....")
