@@ -112,7 +112,7 @@ def main():
             session.cookies.set('cf_clearance', args.token)
 
         for url in urls:
-            url = f"https://www.{url}?all_sounds=yes"
+            url = f"https://www.{url}?get_all_sounds=yes"
             print(f"Fetching \"{url}\"....")
 
             response = session.get(url)
@@ -120,7 +120,7 @@ def main():
             response_content = response.content.decode(
                 json.detect_encoding(response.content))
             board_data_inline = json.loads(
-                re.findall(r"board_data_inline =(.*?)}};", response_content, re.DOTALL)[0] + "}}")
+                re.findall(r"board_data_inline =(.*?)};", response_content, re.DOTALL)[0] + "}")
 
             board_title = args.output if not args.output is None else board_data_inline["board_title"]
             sounds_count = board_data_inline['sounds_count']
