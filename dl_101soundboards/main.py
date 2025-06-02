@@ -17,51 +17,69 @@ import re
 import requests
 import shutil
 
-def main():
+MAX_SOUNDS = 750
 
-    get_config_gen = get_config()
-    config = next(get_config_gen)
+def main ():
+
+    config = get_config()
     if config is None:
-        exit(1)
+        return 0
     else:
-        valid_formats = next(get_config_gen)
+        valid_formats = config.muxers
 
     parser = argparse.ArgumentParser()
 
-    parser.add_argument('-t', '--token', help="Adds a cf_clearance token to the request."
-                                               "This will be necessary to bypass Cloudflare.")
+    a1 = parser.add_argument('-t', '--token', help=
+        "Adds a cf_clearance token to the request. "
+        "This will be necessary to bypass Cloudflare."
+    )
 
-    parser.add_argument('-o', '--output', help="Defines the subdirectory to which sounds are stored."
-                        "This will be necessary when the board title raises an OSError.")
+    a2 = parser.add_argument('-o', '--output', help=
+        "Defines the subdirectory to which sounds are stored. "
+        "This will be necessary when the board title raises an OSError."
+    )
 
-    parser.add_argument('-e', '--edit-config', action='store_true',
-                        help='Enables user to edit config from command line')
+    a3 = parser.add_argument('-e', '--edit-config', action='store_true',
+        help="Enables user to edit config from command line."
+    )
 
-    a3 = parser.add_argument('--no-delete', action='store_true',
-                             help='Disables default behaviour of deleting original downloads')
+    a4 = parser.add_argument('--no-delete', action='store_true',
+        help="Disables default behaviour of deleting original downloads."
+    )
 
-    a4 = parser.add_argument('--no-trim', action='store_true',
-                             help='Disables default behaviour of producing trimmed files')
+    a5 = parser.add_argument('--no-trim', action='store_true',
+        help="Disables default behaviour of producing trimmed files."
+    )
 
-    a5 = parser.add_argument('-f', '--format', nargs='+', action='append', type=str.lower, help='Produces trimmed files in the specified format')
+    a6 = parser.add_argument('-f', '--format', nargs='+', action='append',
+        type=str.lower, help="Produces trimmed files in the specified format."
+    )
+
+    a7 = parser.add_argument('-wd', '--working-directory',
+        action='store_true', help="Download to the working directory instead of "
+            "the downloads path specified in the config file."
+    )
 
     group1 = parser.add_mutually_exclusive_group()
-    group1._group_actions.append(a3)
     group1._group_actions.append(a4)
+    group1._group_actions.append(a5)
 
     group2 = parser.add_mutually_exclusive_group()
-    group2._group_actions.append(a4)
     group2._group_actions.append(a5)
+    group2._group_actions.append(a6)
 
     args, unknown = parser.parse_known_args()
 
     if args.edit_config:
         print("Opening config editor....")
-        edit_config_gen = edit_config(config, valid_formats)
-        config = next(edit_config_gen)
-        valid_formats = next(edit_config_gen)
-    downloads_pardir = f"{config['downloads_pardir']}"
-    user_agent = config['user_agent']
+        config = edit_config(config)
+        valid_formats = config.muxers
+    downloads_pardir = config.json['downloads_pardir']
+    if args.working_directory:
+        cwd = os.getcwd()
+        if file_path_is_writable(cwd):
+            downloads_pardir = cwd
+    user_agent = config.json['user_agent']
     formats = []
     unknown_formats = []
     if not args.format is None:
@@ -104,27 +122,43 @@ def main():
             if url not in urls:
                 urls.append(url)
 
-    with requests.Session() as session:
-        session.headers = {
-            'user-agent': user_agent,
+    def get_board_info(board_url, session):
+        print(f"Fetching \"{board_url}\"....")
+        response = session.get(board_url)
+        response.raise_for_status()
+        response_content = response.content.decode(
+            json.detect_encoding(response.content))
+        return {
+            'board_data_inline': json.loads(
+                re.findall(r"board_data_inline = (.*?)};", response_content, re.DOTALL)[0] + "}"
+            ),
+            'response_content': response_content
         }
-        if args.token:
-            session.cookies.set('cf_clearance', args.token)
 
-        for url in urls:
-            url = f"https://www.{url}?get_all_sounds=yes"
-            print(f"Fetching \"{url}\"....")
+    session_headers = {'User-Agent': user_agent}
+    session_cookies = {'cf_clearance': args.token} if args.token else {}
 
-            response = session.get(url)
-            response.raise_for_status()
-            response_content = response.content.decode(
-                json.detect_encoding(response.content))
-            board_data_inline = json.loads(
-                re.findall(r"board_data_inline =(.*?)};", response_content, re.DOTALL)[0] + "}")
-
+    for url in urls:
+        with requests.Session() as session:
+            session.headers = session_headers
+            session.cookies.update(session_cookies)
+            url = f"https://www.{url}"
+            board_info = get_board_info(url, session)
+            board_data_inline = board_info['board_data_inline']
+            loaded_sounds_count = len(board_data_inline['sounds'])
+            complete_sounds_count = board_data_inline['sounds_count']
+            if loaded_sounds_count <= MAX_SOUNDS < complete_sounds_count:
+                load_all_sounds_url = re.findall(f'<a href=\"({url}.*) \">',
+                                                 board_info['response_content'], re.DOTALL)[0]
+                if load_all_sounds_url is None:
+                    if not ask_yes_no(f"Failed to retrieve all {complete_sounds_count} sounds!"
+                    f"\nDownload {loaded_sounds_count} sound{p_or_s(loaded_sounds_count)}?"):
+                        continue
+                else:
+                    board_data_inline = get_board_info(load_all_sounds_url, session)['board_data_inline']
             board_title = args.output if not args.output is None else board_data_inline["board_title"]
             sounds_count = board_data_inline['sounds_count']
-            sounds_tense = 's' if sounds_count != 1 else ''
+            sounds_tense = p_or_s(sounds_count)
             print(f"Fetching \"{board_data_inline['board_title']}\" ({sounds_count} sound{sounds_tense})....")
             board_title = board_title.translate({ord(x): '' for x in "\\/:*?\"<>|"})
 
@@ -187,10 +221,10 @@ def main():
                     if format == 'flac':
                         for sound in board_data_inline['sounds']:
                             current_sound += 1
-                            print(
-                                f"\r\tTagging {current_sound} of {sounds_count} sound{sounds_tense}....", end='')
                             sound_path = os.path.abspath(f"{sounds_path}/{sound["id"]}.{valid_formats[format]}")
                             file = format_class(sound_path)
+                            print(
+                                f"\r\tTagging {current_sound} of {sounds_count} sound{sounds_tense}....", end='')
                             metadata = {
                                 "TITLE": sound['sound_transcript'],
                                 "DESCRIPTION": f"Sound ID: {sound['id']}",
@@ -211,8 +245,6 @@ def main():
                             current_sound += 1
                             print(
                                 f"\r\tTagging {current_sound} of {sounds_count} sound{sounds_tense}....", end='')
-                            sound_path = os.path.abspath(f"{sounds_path}/{sound["id"]}.{valid_formats[format]}")
-                            file = format_class(sound_path)
                             metadata = {
                                 "TITLE": sound['sound_transcript'],
                                 "COMMENT": f"Sound ID: {sound['id']}",
@@ -274,6 +306,18 @@ def main():
                     shutil.rmtree(untrimmed_sounds_dir)
                     print(f"Removed \"{untrimmed_sounds_dir}\"")
 
+def ask_yes_no (prompt):
+    while True:
+        response = input(f"{prompt} [Y/n] ").strip().lower()
+        if len(response) > 0:
+            if response[0] == 'y':
+                return True
+            elif response[0] == 'n':
+                return False
+        print("Please enter yes or no [Y/n] ")
+
+def p_or_s (len):
+    return '' if len == 1 else 's'
 
 if __name__ == "__main__":
     main()

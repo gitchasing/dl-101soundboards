@@ -1,9 +1,3 @@
-**NOTICE:** `yt-dlp`_ appears to support ``www.101soundboards.com/boards/`` URLs
-via generic extractors. ``yt-dlp`` is much faster than ``dl-101soundboards``, but may be less
-viable with regard to file organisation and metadata-tagging.
-
-.. _yt-dlp: https://github.com/yt-dlp/yt-dlp
-
 =================
 dl-101soundboards
 =================
@@ -33,24 +27,25 @@ Use the shell command ``dl-101soundboards`` with the URLs as arguments.
 .. code-block:: console
 
     $ dl-101soundboards https://www.101soundboards.com/boards/685667-windows-95-video-game-music https://www.101soundboards.com/boards/646953-spy-vs-spy-video-game-music
-    Fetching "https://www.101soundboards.com/boards/685667?show_all_sounds=yes"....
+    Fetching "https://www.101soundboards.com/boards/685667"....
     Fetching "Windows 95 - Video Game Music" (8 sounds)....
-    Downloaded 8 sounds to "C:\Users\gitchasing\Downloads\Windows 95 - Video Game Music\685667\untrimmed"
+    Downloaded 8 sounds to "/home/gitchasing/Video Game OSTs/Windows 95 - Video Game Music/685667/untrimmed"
     Trimming sound files....
-    Exported 8 .FLAC files to "C:\Users\gitchasing\Downloads\Windows 95 - Video Game Music\685667\trimmed\flac"
-    Adding metadata to exports....
+    Exported 8 FLAC files to "/home/gitchasing/Video Game OSTs/Windows 95 - Video Game Music/685667/flac"
+    Adding metadata to /home/gitchasing/Video Game OSTs/Windows 95 - Video Game Music/685667/flac/*.flac....
     Tagged 8 FLAC files
     Removing original downloads....
-    Removed "C:\Users\gitchasing\Downloads\Windows 95 - Video Game Music\685667\untrimmed"
-    Fetching "https://www.101soundboards.com/boards/646953?show_all_sounds=yes"....
+    Removed "/home/gitchasing/Video Game OSTs/Windows 95 - Video Game Music/685667/untrimmed"
+    Fetching "https://www.101soundboards.com/boards/646953"....
     Fetching "Spy vs. Spy - Video Game Music" (10 sounds)....
-    Downloaded 10 sounds to "C:\Users\gitchasing\Downloads\Spy vs. Spy - Video Game Music\646953\untrimmed"
+    Downloaded 10 sounds to "/home/gitchasing/Video Game OSTs/Spy vs. Spy - Video Game Music/646953/untrimmed"
     Trimming sound files....
-    Exported 10 .FLAC files to "C:\Users\gitchasing\Downloads\Spy vs. Spy - Video Game Music\646953\trimmed\flac"
-    Adding metadata to exports....
+    Exported 10 FLAC files to "/home/gitchasing/Video Game OSTs/Spy vs. Spy - Video Game Music/646953/flac"
+    Adding metadata to /home/gitchasing/Video Game OSTs/Spy vs. Spy - Video Game Music/646953/flac/*.flac....
     Tagged 10 FLAC files
     Removing original downloads....
-    Removed "C:\Users\gitchasing\Downloads\Spy vs. Spy - Video Game Music\646953\untrimmed"
+    Removed "/home/gitchasing/Video Game OSTs/Spy vs. Spy - Video Game Music/646953/untrimmed"
+
 
 By default, ``dl-101soundboards`` exports separate, trimmed files from the original downloads, then deletes said downloads.
 To keep the original, unedited files with the filtered ones, simply use the ``--no-delete`` flag.
@@ -58,12 +53,12 @@ To keep the original, unedited files with the filtered ones, simply use the ``--
 .. code-block:: console
 
     $ dl-101soundboards --no-delete https://www.101soundboards.com/boards/685667-windows-95-video-game-music
-    Fetching "https://www.101soundboards.com/boards/685667?show_all_sounds=yes"....
+    Fetching "https://www.101soundboards.com/boards/685667"....
     Fetching "Windows 95 - Video Game Music" (8 sounds)....
-    Downloaded 8 sounds to "C:\Users\gitchasing\Downloads\Windows 95 - Video Game Music\685667\untrimmed"
+    Downloaded 8 sounds to "/home/gitchasing/Video Game OSTs/Windows 95 - Video Game Music/685667/untrimmed"
     Trimming sound files....
-    Exported 8 .FLAC files to "C:\Users\gitchasing\Downloads\Windows 95 - Video Game Music\685667\trimmed\flac"
-    Adding metadata to exports....
+    Exported 8 FLAC files to "/home/gitchasing/Video Game OSTs/Windows 95 - Video Game Music/685667/flac"
+    Adding metadata to /home/gitchasing/Video Game OSTs/Windows 95 - Video Game Music/685667/flac/*.flac....
     Tagged 8 FLAC files
 
 Alternatively, if you wish to leave the sounds untrimmed, use the ``--no-trim`` flag.
@@ -71,9 +66,9 @@ Alternatively, if you wish to leave the sounds untrimmed, use the ``--no-trim`` 
 .. code-block:: console
 
     $ dl-101soundboards --no-trim https://www.101soundboards.com/boards/685667-windows-95-video-game-music
-    Fetching "https://www.101soundboards.com/boards/685667?show_all_sounds=yes"....
+    Fetching "https://www.101soundboards.com/boards/685667"....
     Fetching "Windows 95 - Video Game Music" (8 sounds)....
-    Downloaded 8 sounds to "C:\Users\gitchasing\Downloads\Windows 95 - Video Game Music\685667\untrimmed"
+    Downloaded 8 sounds to "/home/gitchasing/Video Game OSTs/Windows 95 - Video Game Music/685667/untrimmed"
 
 Exports
 *******
@@ -89,15 +84,21 @@ To specify the export format(s), use the ``-f`` or ``--format`` flag:
 .. code-block:: console
 
     $ dl-101soundboards -f WAV AIFF TTA https://www.101soundboards.com/boards/685667-windows-95-video-game-music
-    Fetching "https://www.101soundboards.com/boards/685667?show_all_sounds=yes"....
+    Fetching "https://www.101soundboards.com/boards/685667"....
     Fetching "Windows 95 - Video Game Music" (8 sounds)....
-    Downloaded 8 sounds to "C:\Users\gitchasing\Downloads\Windows 95 - Video Game Music\685667\untrimmed"
+    Downloaded 8 sounds to "/home/gitchasing/Video Game OSTs/Windows 95 - Video Game Music/685667/untrimmed"
     Trimming sound files....
-    Exported 8 .WAV files to "C:\Users\gitchasing\Downloads\Windows 95 - Video Game Music\685667\trimmed\wav"
-    Exported 8 .AIF files to "C:\Users\gitchasing\Downloads\Windows 95 - Video Game Music\685667\trimmed\aiff"
-    Exported 8 .TTA files to "C:\Users\gitchasing\Downloads\Windows 95 - Video Game Music\685667\trimmed\tta"
+    Exported 8 WAV files to "/home/gitchasing/Video Game OSTs/Windows 95 - Video Game Music/685667/wav"
+    Exported 8 AIFF files to "/home/gitchasing/Video Game OSTs/Windows 95 - Video Game Music/685667/aiff"
+    Exported 8 TTA files to "/home/gitchasing/Video Game OSTs/Windows 95 - Video Game Music/685667/tta"
+    Adding metadata to /home/gitchasing/Video Game OSTs/Windows 95 - Video Game Music/685667/aiff/*.aif....
+    Tagged 8 AIFF files
+    Adding metadata to /home/gitchasing/Video Game OSTs/Windows 95 - Video Game Music/685667/tta/*.tta....
+    Tagged 8 TTA files
+    Adding metadata to /home/gitchasing/Video Game OSTs/Windows 95 - Video Game Music/685667/wav/*.wav....
+    Tagged 8 WAV files
     Removing original downloads....
-    Removed "C:\Users\gitchasing\Downloads\Windows 95 - Video Game Music\685667\untrimmed"
+    Removed "/home/gitchasing/Video Game OSTs/Windows 95 - Video Game Music/685667/untrimmed"
 
 Beware that exporting lossy formats will necessarily shed quality, due to the sample-precise trimming operations made by the program.
 
@@ -131,7 +132,7 @@ OSError
 *******
 
 Under your downloads directory, ``dl-101soundboards`` creates a subdirectory for each URL, based on the board title.
-Sometimes this board title makes for an incompatible folder name:
+Sometimes this board title makes for an incompatible folder name. E.g., on Windows:
 
 .. code-block:: console
 
@@ -144,6 +145,11 @@ To circumvent this, simply use the ``-o`` or ``--output`` flag:
 
     $ dl-101soundboards -o "Xenoblade Chronicles X Soundtrack" https://www.101soundboards.com/boards/644430-xenoblade-chronicles-x-xenoblade-cross-zenobureidokurosu-video-game-music
 
+Downloading to the Working Directory
+
+.. code-block:: console
+
+    $ dl-101soundboards -wd <urls>
 
 Configuration
 =============
@@ -154,4 +160,4 @@ To configure your downloads directory and user agent, use the ``-e`` or ``--edit
 
     $ dl-101soundboards --edit-config
 
-You will be automatically asked to configure these settings on your first use of the program.
+You will be asked to configure these settings on your first use of the program.
