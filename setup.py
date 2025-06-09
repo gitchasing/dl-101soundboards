@@ -8,9 +8,13 @@ with open('README.rst') as f:
 with open('LICENSE') as f:
     license = f.read()
 
+for i in ['config', 'muxers']:
+    with open(f"dl_101soundboards/config/{i}.json", 'w') as f:
+        f.write('{}')
+
 setup(
     name='dl-101soundboards',
-    version='1.5.0a1',
+    version='1.5.3a1',
     description='Unofficial downloader for www.101soundboards.com',
     long_description=readme,
     author='gitchasing',
@@ -28,4 +32,5 @@ setup(
             "dl-101soundboards=dl_101soundboards:main",
         ],
     },
+    include_package_data=True
 )

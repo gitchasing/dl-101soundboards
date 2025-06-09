@@ -1,1 +1,2 @@
 include LICENSE
+include dl_101soundboards/config/*.json
